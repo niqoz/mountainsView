@@ -101,14 +101,19 @@ export class Overlay {
 
     if (!peaks.length) return;
 
-    // Projeter et retenir uniquement les sommets strictement dans l'écran
+    // Ne garder que les sommets dans une zone centrale autour de la visée
+    // (réduit l'encombrement : on n'affiche que ce qui est ~au centre de l'écran).
+    const cx = w / 2, cy = h / 2;
+    const halfX = w * 0.25;  // bande centrale ≈ 50 % de la largeur
+    const halfY = h * 0.30;  // bande centrale ≈ 60 % de la hauteur
+
     const projected = [];
     for (const p of peaks) {
       if (p.occluded) continue; // masqué par un relief plus proche
       const pr = this.project(p.azimuth, p.elevation, view, w, h);
-      if (pr.visible && pr.x >= 0 && pr.x <= w && pr.y >= 0 && pr.y <= h) {
-        projected.push({ ...p, x: pr.x, y: pr.y });
-      }
+      if (!pr.visible) continue;
+      if (Math.abs(pr.x - cx) > halfX || Math.abs(pr.y - cy) > halfY) continue;
+      projected.push({ ...p, x: pr.x, y: pr.y });
     }
 
     // Trier par angle d'élévation décroissant : les sommets qui "dépassent" le plus
@@ -116,10 +121,10 @@ export class Overlay {
     // à 4 km / 850 m apparaît avant Monte Cinto à 48 km / 2700 m).
     projected.sort((a, b) => b.elevation - a.elevation);
 
-    // Placer max 15 labels : skip si les badges se chevauchent en X ET en Y
+    // Placer max 8 labels : skip si les badges se chevauchent en X ET en Y
     const placed = [];
     for (const p of projected) {
-      if (placed.length >= 15) break;
+      if (placed.length >= 8) break;
       if (placed.some((q) => Math.abs(p.x - q.x) < 55 && Math.abs(p.y - q.y) < 32)) continue;
       placed.push(p);
     }
@@ -147,8 +152,10 @@ export class Overlay {
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.fill();
 
-    // Badge : nom + distance
-    const label = `${name}  ${distKm.toFixed(0)} km`;
+    // Badge : nom + altitude + distance
+    const label = altM > 0
+      ? `${name}  ${altM} m  ·  ${distKm.toFixed(0)} km`
+      : `${name}  ${distKm.toFixed(0)} km`;
     ctx.font = '700 13px system-ui, sans-serif';
     const tw = ctx.measureText(label).width;
     const pad = 7, bh = 22;
@@ -169,15 +176,5 @@ export class Overlay {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, bx + pad, by + bh / 2);
-
-    // Altitude en sous-titre (petit, sous le badge)
-    if (altM > 0) {
-      const sub = `${altM} m`;
-      ctx.font = '500 11px system-ui, sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(sub, bx + bw / 2, by + bh + 2);
-    }
   }
 }
