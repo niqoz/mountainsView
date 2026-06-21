@@ -116,16 +116,17 @@ export class Overlay {
       projected.push({ ...p, x: pr.x, y: pr.y });
     }
 
-    // Trier par angle d'élévation décroissant : les sommets qui "dépassent" le plus
-    // au-dessus de l'horizon de l'observateur sont affichés en priorité (Monte Negrine
-    // à 4 km / 850 m apparaît avant Monte Cinto à 48 km / 2700 m).
+    // Trier par angle d'élévation décroissant : dans une même direction, le sommet
+    // qui "dépasse" le plus est celui qu'on voit réellement au-dessus des autres.
     projected.sort((a, b) => b.elevation - a.elevation);
 
-    // Placer max 8 labels : skip si les badges se chevauchent en X ET en Y
+    // UN SEUL label par direction de visée (colonne) : on garde le plus marquant
+    // et on élimine tous les sommets d'arrière-plan alignés derrière lui.
+    const COL = 70; // largeur de colonne (px)
     const placed = [];
     for (const p of projected) {
-      if (placed.length >= 8) break;
-      if (placed.some((q) => Math.abs(p.x - q.x) < 55 && Math.abs(p.y - q.y) < 32)) continue;
+      if (placed.length >= 6) break;
+      if (placed.some((q) => Math.abs(p.x - q.x) < COL)) continue;
       placed.push(p);
     }
 
