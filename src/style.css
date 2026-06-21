@@ -49,6 +49,16 @@ html, body {
   -webkit-backdrop-filter: blur(4px);
 }
 
+/* Pastille interactive (bouton) — le HUD est en pointer-events:none, on réactive ici */
+.pill-btn {
+  border: none;
+  cursor: pointer;
+  pointer-events: auto;
+  font-family: inherit;
+  background: rgba(59, 130, 246, 0.8);
+}
+.pill-btn:active { background: rgba(37, 99, 235, 0.9); }
+
 /* Écran de chargement */
 #loading {
   position: fixed; inset: 0;

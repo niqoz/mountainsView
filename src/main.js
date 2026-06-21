@@ -10,10 +10,9 @@ const $ = (id) => document.getElementById(id);
 // --- État global ---
 
 const DEFAULT_BASIS = { right: [1, 0, 0], up: [0, 0, 1], forward: [0, 1, 0] };
-let rawPointing       = { azimuth: 0, elevation: 0, basis: DEFAULT_BASIS };
+let rawPointing       = { azimuth: 0, elevation: 0, basis: DEFAULT_BASIS, dAz: 0, calibrated: false, magReliable: true };
 let orientationSource = '';
-let dAz        = 0;      // offset boussole pour ancrer le zéro du gyroscope
-let calibrated = false;
+let orientationCtl    = null;  // { stop, recalibrate } retourné par startOrientation
 
 let location      = null;
 let computedPeaks = []; // pré-calculés : { name, azimuth, elevation, distKm, altM }
@@ -32,13 +31,10 @@ async function enterApp() {
   try {
     // Orientation AVANT la caméra : sur iOS, DeviceOrientationEvent.requestPermission()
     // doit être déclenché dans la continuité du geste utilisateur.
-    await startOrientation((p) => {
+    orientationCtl = await startOrientation((p) => {
       rawPointing       = p;
       orientationSource = p.source;
     });
-
-    // Ancrage boussole automatique (une seule lecture, aucun geste requis)
-    anchorGyroWithCompass();
 
     setLoadingMsg('Démarrage caméra…');
     await startCamera($('cam'));
@@ -51,52 +47,22 @@ async function enterApp() {
   overlay = new Overlay($('overlay'));
   $('loading').classList.add('hidden');
 
+  // Recalage manuel de la boussole (force un calage immédiat sur le nord magnétique).
+  $('btn-recal').addEventListener('click', () => {
+    orientationCtl?.recalibrate?.();
+    flashRecal();
+  });
+
   // GPS + sommets en arrière-plan (n'attend pas pour afficher la caméra)
   acquireLocationAndPeaks();
 
   requestAnimationFrame(renderLoop);
 }
 
-// --- Calibration automatique boussole → gyroscope ---
-
-function anchorGyroWithCompass() {
-  const evtName = ('ondeviceorientationabsolute' in window)
-    ? 'deviceorientationabsolute'
-    : 'deviceorientation';
-
-  const anchor = (e) => {
-    if (calibrated) {
-      window.removeEventListener(evtName, anchor, true);
-      return;
-    }
-    // Boussole déjà référencée au nord → pas d'offset nécessaire
-    if (orientationSource === 'compass') {
-      calibrated = true;
-      window.removeEventListener(evtName, anchor, true);
-      return;
-    }
-    // Gyroscope : calcul de l'offset dAz par rapport au nord magnétique
-    const compassAz = typeof e.webkitCompassHeading === 'number'
-      ? e.webkitCompassHeading
-      : ((360 - (e.alpha ?? 0)) + 360) % 360;
-    dAz = ((compassAz - rawPointing.azimuth) + 360) % 360;
-    calibrated = true;
-    window.removeEventListener(evtName, anchor, true);
-  };
-
-  window.addEventListener(evtName, anchor, true);
-}
-
-// --- Azimut/élévation corrigés (nord-référencé) ---
+// --- Azimut/élévation (déjà corrigés et référencés nord par sensors.js) ---
 
 function pointing() {
-  if (orientationSource === 'compass') {
-    return { azimuth: rawPointing.azimuth, elevation: rawPointing.elevation };
-  }
-  return {
-    azimuth:   ((rawPointing.azimuth + dAz) % 360 + 360) % 360,
-    elevation: rawPointing.elevation,
-  };
+  return { azimuth: rawPointing.azimuth, elevation: rawPointing.elevation };
 }
 
 // --- GPS et chargement des sommets ---
@@ -164,7 +130,7 @@ function renderLoop() {
     right:   b.right,
     up:      b.up,
     forward: b.forward,
-    dAz:     orientationSource === 'compass' ? 0 : dAz,
+    dAz:     rawPointing.dAz ?? 0,
     dEl:     0,
   };
 
@@ -189,8 +155,23 @@ function setPeakBadge(t)  { const el = $('peaks-badge'); if (el) el.textContent 
 function updateSensorBadge(pt) {
   const el = $('sensor-badge');
   if (!el) return;
-  const src = orientationSource === 'gyro'
-    ? (calibrated ? 'Gyro+Boussole' : 'Gyro…')
-    : 'Boussole';
+  let src;
+  if (orientationSource === 'gyro') {
+    src = !rawPointing.calibrated ? 'Calibrage…'
+        : rawPointing.magReliable ? 'Boussole OK' : 'Boussole ?';
+  } else if (orientationSource === 'compass') {
+    src = 'Boussole';
+  } else {
+    src = '–';
+  }
   el.textContent = `${src}  Az ${pt.azimuth.toFixed(0)}°  El ${pt.elevation.toFixed(0)}°`;
+}
+
+// Retour visuel bref sur le bouton « Recalibrer ».
+function flashRecal() {
+  const b = $('btn-recal');
+  if (!b) return;
+  const prev = b.textContent;
+  b.textContent = 'Recalibré ✓';
+  setTimeout(() => { b.textContent = prev; }, 1200);
 }
