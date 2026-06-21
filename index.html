@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0d1117" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>MountainsView</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+
+  <!-- Flux caméra (fond) -->
+  <video id="cam" playsinline muted autoplay></video>
+
+  <!-- Overlay AR (canvas par-dessus la caméra) -->
+  <canvas id="overlay"></canvas>
+
+  <!-- HUD : pastilles d'info en haut -->
+  <div id="hud">
+    <span class="pill" id="sensor-badge">–</span>
+    <span class="pill" id="gps">GPS…</span>
+    <span class="pill hidden" id="peaks-badge"></span>
+  </div>
+
+  <!-- Écran de chargement (affiché après le tap "Démarrer") -->
+  <div id="loading" class="hidden">
+    <div class="spinner"></div>
+    <p id="loading-msg">Initialisation…</p>
+  </div>
+
+  <!-- Écran d'accueil -->
+  <div id="start-screen">
+    <div class="start-card">
+      <div class="start-icon">⛰</div>
+      <h1>MountainsView</h1>
+      <p>Pointez votre téléphone vers les montagnes pour voir leur nom en réalité augmentée.</p>
+      <p class="hint">Caméra, GPS et orientation requis.</p>
+      <button id="btn-start">Démarrer</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
